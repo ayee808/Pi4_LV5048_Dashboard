@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=yes">
+
+    <!-- Bootstrap CSS -->
+    <!--<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">-->
+	<link rel="stylesheet" href="/static/bootstrap.min.css">
+	<link href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/css/bootstrap4-toggle.min.css" rel="stylesheet">
+
+    <title>LV 5048 Dashboard</title>
+  </head>
+  <body>
+    <div class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+		<div class="container">
+			<a class="navbar-brand" href="#">LV5048 - Dashboard</a>
+			<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarColor02" aria-controls="navbarColor02" aria-expanded="false" aria-label="Toggle navigation">
+				<span class="navbar-toggler-icon"></span>
+			</button>
+			<div class="collapse navbar-collapse" id="navbarColor02">
+				<ul class="navbar-nav mr-auto">
+					<li class="nav-item active">
+						<a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard<span class="sr-only">(current)</span></a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="{{ url_for('day') }}">Day</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="{{ url_for('week') }}">Week</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="{{ url_for('month') }}">Month</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="{{ url_for('year') }}">Year</a>
+					</li>
+				</ul>
+			</div>
+			<ul class="nav navbar-nav navbar-right">
+				<li>{{time}}</li>
+			</ul>
+		</div>
+	</div>
+    
+    <div class = "container">
+		<div class="row" style="margin-top:100px">
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">Voltage</div>
+						<div class="card-body">
+							<h4 class="card-title">{{batteryVoltage}} V</h4>
+							<div class="progress">
+							  <div class="progress-bar" role="progressbar" style="width: {{batteryVoltagePct}}%" aria-valuenow="{{batteryVoltage}}" aria-valuemin="0" aria-valuemax="100"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">Battery Charge Current</div>
+						<div class="card-body">
+							<h4 class="card-title">{{batteryChargeCurrent}} A</h4>
+							<div class="progress">
+								<div class="progress-bar" role="progressbar" style="width: {{batteryChargeCurrentPct}}%" aria-valuenow="{{batteryChargeCurrent}}" aria-valuemin="0" aria-valuemax="100"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">Battery Discharge Current</div>
+						<div class="card-body">
+							<h4 class="card-title">{{batteryDischargeCurrent}} A</h4>
+							<div class="progress">
+								<div class="progress-bar" role="progressbar" style="width: {{batteryDischargeCurrentPct}}%" aria-valuenow="{{batteryDischargeCurrent}}" aria-valuemin="0" aria-valuemax="100"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">Power</div>
+						<div class="card-body">
+							<h4 class="card-title">{{activePower}} W</h4>
+							<div class="progress">
+								<div class="progress-bar" role="progressbar" style="width: {{activePowerPct}}%" aria-valuenow="{{activePower}}" aria-valuemin="0" aria-valuemax="100"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">Load</div>
+						<div class="card-body">
+							<h4 class="card-title">{{outputLoad}} %</h4>
+							<div class="progress">
+							  <div class="progress-bar" role="progressbar" style="width: {{outputLoad}}%" aria-valuenow="{{outputLoad}}" aria-valuemin="0" aria-valuemax="100"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">Temperature</div>
+						<div class="card-body">
+							<h4 class="card-title">{{inverterTemp}} C</h4>
+							<div class="progress">
+							  <div class="progress-bar" role="progressbar" style="width: {{inverterTempPct}}%" aria-valuenow="{{inverterTemp}}" aria-valuemin="0" aria-valuemax="100"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">PV Power</div>
+						<div class="card-body">
+							<h4 class="card-title">{{pvInputPower}} W</h4>
+							<div class="progress">
+							  <div class="progress-bar" role="progressbar" style="width: {{pvInputPowerPct}}%" aria-valuenow="{{pvInputPower}}" aria-valuemin="0" aria-valuemax="100"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">PV Voltage</div>
+						<div class="card-body">
+							<h4 class="card-title">{{pvInputVoltage}} V</h4>
+							<div class="progress">
+							  <div class="progress-bar" role="progressbar" style="width: {{pvInputVoltagePct}}%" aria-valuenow="{{pvInputVoltage}}" aria-valuemin="0" aria-valuemax="100"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">PV Current</div>
+						<div class="card-body">
+							<h4 class="card-title">{{pvInputCurrent}} A</h4>
+							<div class="progress">
+							  <div class="progress-bar" role="progressbar" style="width: {{pvInputCurrentPct}}%" aria-valuenow="{{pvInputCurrent}}" aria-valuemin="0" aria-valuemax="100"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">Rasberry Pi Temperature</div>
+						<div class="card-body">
+							<h4 class="card-title">{{piTemp}} C</h4>
+							<div class="progress">
+							  <div class="progress-bar" role="progressbar" style="width: {{piTempPct}}%" aria-valuenow="{{piTemp}}" aria-valuemin="0" aria-valuemax="100"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">Charging Status
+						<div class="form-check form-check-inline float-right">
+							<input id="stackedCheck1" class="form-check-input" type="checkbox" data-toggle="toggle" data-size="sm" {{isCharging}} disabled>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-4">
+				<div class="card border-primary mb-3" style="max-width: 20rem;">
+					<div class="card-header">Charging to Float Status
+						<div class="form-check form-check-inline float-right">
+							<input id="stackedCheck1" class="form-check-input" type="checkbox" data-toggle="toggle" data-size="sm" {{isChargingToFloat}} disabled>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
+  </body>
+</html>
