@@ -387,5 +387,111 @@ def year():
 	return render_template('year.html', pvwatts = pvwatts, usedwatts = usedwatts, volts = volts, chargeAmps = chargeAmps, dischargeAmps = dischargeAmps, inverterTemps = inverterTemps, piTemps = piTemps)
 
 
+@app.route('/stats')
+def stats():
+	# timestamp
+	now = datetime.now()
+	time = now.strftime("%m/%d/%Y - %H:%M:%S")
+
+	# connect to database
+	conn = sqlite3.connect('/home/pi/Documents/Solar.db')
+	conn.row_factory = sqlite3.Row
+	cur = conn.cursor()
+
+	# Calculate daily kilowatt hours for today
+	cur.execute("select timestamp,pv_input_power,ac_output_active_power from LV5048 where date(timestamp) = date('now','localtime') order by timestamp")
+	today_rows = cur.fetchall()
+
+	dailyGenerated = 0.0
+	dailyConsumed = 0.0
+
+	for i in range(len(today_rows) - 1):
+		current_time = dateutil.parser.isoparse(today_rows[i][0])
+		next_time = dateutil.parser.isoparse(today_rows[i + 1][0])
+		time_delta_hours = (next_time - current_time).total_seconds() / 3600.0
+
+		pv_power_kw = today_rows[i][1] / 1000.0 if today_rows[i][1] else 0.0
+		consumed_power_kw = today_rows[i][2] / 1000.0 if today_rows[i][2] else 0.0
+
+		dailyGenerated += pv_power_kw * time_delta_hours
+		dailyConsumed += consumed_power_kw * time_delta_hours
+
+	# Calculate daily totals for current month
+	cur.execute("select date(timestamp) as day, timestamp,pv_input_power,ac_output_active_power from LV5048 where strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now','localtime') order by timestamp")
+	month_rows = cur.fetchall()
+
+	monthly_data = {}
+	for row in month_rows:
+		day = row[0]
+		if day not in monthly_data:
+			monthly_data[day] = {'generated': 0.0, 'consumed': 0.0, 'timestamps': []}
+		monthly_data[day]['timestamps'].append(row)
+
+	monthlyGenerated = []
+	monthlyConsumed = []
+
+	for day in sorted(monthly_data.keys()):
+		day_generated = 0.0
+		day_consumed = 0.0
+		day_data = monthly_data[day]['timestamps']
+
+		for i in range(len(day_data) - 1):
+			current_time = dateutil.parser.isoparse(day_data[i][1])
+			next_time = dateutil.parser.isoparse(day_data[i + 1][1])
+			time_delta_hours = (next_time - current_time).total_seconds() / 3600.0
+
+			pv_power_kw = day_data[i][2] / 1000.0 if day_data[i][2] else 0.0
+			consumed_power_kw = day_data[i][3] / 1000.0 if day_data[i][3] else 0.0
+
+			day_generated += pv_power_kw * time_delta_hours
+			day_consumed += consumed_power_kw * time_delta_hours
+
+		monthlyGenerated.append({"x": day, "y": round(day_generated, 2)})
+		monthlyConsumed.append({"x": day, "y": round(day_consumed, 2)})
+
+	# Calculate monthly totals for current year
+	cur.execute("select strftime('%Y-%m', timestamp) as month, timestamp,pv_input_power,ac_output_active_power from LV5048 where strftime('%Y', timestamp) = strftime('%Y', 'now','localtime') order by timestamp")
+	year_rows = cur.fetchall()
+
+	yearly_data = {}
+	for row in year_rows:
+		month = row[0]
+		if month not in yearly_data:
+			yearly_data[month] = {'generated': 0.0, 'consumed': 0.0, 'timestamps': []}
+		yearly_data[month]['timestamps'].append(row)
+
+	yearlyGenerated = []
+	yearlyConsumed = []
+
+	for month in sorted(yearly_data.keys()):
+		month_generated = 0.0
+		month_consumed = 0.0
+		month_data = yearly_data[month]['timestamps']
+
+		for i in range(len(month_data) - 1):
+			current_time = dateutil.parser.isoparse(month_data[i][1])
+			next_time = dateutil.parser.isoparse(month_data[i + 1][1])
+			time_delta_hours = (next_time - current_time).total_seconds() / 3600.0
+
+			pv_power_kw = month_data[i][2] / 1000.0 if month_data[i][2] else 0.0
+			consumed_power_kw = month_data[i][3] / 1000.0 if month_data[i][3] else 0.0
+
+			month_generated += pv_power_kw * time_delta_hours
+			month_consumed += consumed_power_kw * time_delta_hours
+
+		yearlyGenerated.append({"x": month + "-01", "y": round(month_generated, 2)})
+		yearlyConsumed.append({"x": month + "-01", "y": round(month_consumed, 2)})
+
+	conn.close()
+
+	return render_template('stats.html',
+						 time=time,
+						 dailyGenerated=round(dailyGenerated, 2),
+						 dailyConsumed=round(dailyConsumed, 2),
+						 monthlyGenerated=monthlyGenerated,
+						 monthlyConsumed=monthlyConsumed,
+						 yearlyGenerated=yearlyGenerated,
+						 yearlyConsumed=yearlyConsumed)
+
 if __name__ == '__main__':
 	app.run(debug = True, host='0.0.0.0')

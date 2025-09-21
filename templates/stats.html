@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=yes">
+
+    <!-- Bootstrap CSS -->
+    <!--<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">-->
+	<link rel="stylesheet" href="/static/bootstrap.min.css">
+	<link href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/css/bootstrap4-toggle.min.css" rel="stylesheet">
+
+    <title>LV 5048 Dashboard</title>
+  </head>
+  <body>
+    <div class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+		<div class="container">
+			<a class="navbar-brand" href="#">LV5048 - Energy Statistics</a>
+			<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarColor02" aria-controls="navbarColor02" aria-expanded="false" aria-label="Toggle navigation">
+				<span class="navbar-toggler-icon"></span>
+			</button>
+			<div class="collapse navbar-collapse" id="navbarColor02">
+				<ul class="navbar-nav mr-auto">
+					<li class="nav-item">
+						<a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="{{ url_for('day') }}">Day</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="{{ url_for('week') }}">Week</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="{{ url_for('month') }}">Month</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="{{ url_for('year') }}">Year</a>
+					</li>
+					<li class="nav-item active">
+						<a class="nav-link" href="{{ url_for('stats') }}">Stats<span class="sr-only">(current)</span></a>
+					</li>
+				</ul>
+			</div>
+			<ul class="nav navbar-nav navbar-right">
+				<li>{{time}}</li>
+			</ul>
+		</div>
+	</div>
+
+    <div class = "container" >
+		<!-- Daily Energy Summary -->
+		<div class="row" style="margin-top:70px">
+			<div class="col-lg-12">
+				<div class="card border-primary mb-12" style="max-width: 100%;">
+					<div class="card-header">Today's Energy Summary</div>
+					<div class="card-body">
+						<div class="row">
+							<div class="col-md-6">
+								<h5 class="card-title">Energy Generated</h5>
+								<h3 class="text-success">{{ "%.2f"|format(dailyGenerated) }} kWh</h3>
+							</div>
+							<div class="col-md-6">
+								<h5 class="card-title">Energy Consumed</h5>
+								<h3 class="text-warning">{{ "%.2f"|format(dailyConsumed) }} kWh</h3>
+							</div>
+						</div>
+						<div class="row mt-3">
+							<div class="col-md-6">
+								<h5 class="card-title">Net Energy</h5>
+								<h3 class="{{ 'text-success' if (dailyGenerated - dailyConsumed) >= 0 else 'text-danger' }}">{{ "%.2f"|format(dailyGenerated - dailyConsumed) }} kWh</h3>
+							</div>
+							<div class="col-md-6">
+								<h5 class="card-title">Efficiency</h5>
+								<h3 class="text-info">{{ "%.1f"|format((dailyGenerated / (dailyConsumed if dailyConsumed > 0 else 1)) * 100) }}%</h3>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Monthly Energy Chart -->
+		<div class="row" style="margin-top:20px">
+			<div class="col-lg-12">
+				<div class="card border-primary mb-12" style="max-width: 100%; height: 500px;">
+					<div class="card-header">Daily Energy This Month</div>
+					<div class="card-body">
+						<canvas id="monthlyChart" style="height:400px;"></canvas>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Yearly Energy Chart -->
+		<div class="row" style="margin-top:20px">
+			<div class="col-lg-12">
+				<div class="card border-primary mb-12" style="max-width: 100%; height: 500px;">
+					<div class="card-header">Monthly Energy This Year</div>
+					<div class="card-body">
+						<canvas id="yearlyChart" style="height:400px;"></canvas>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.27.0/moment.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3"></script>
+	<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@0.7.7"></script>
+    <script>
+		var colors = ['#9B5DE5','#F15BB5','#FEE440','#00BBF9','#00F5D4'];
+
+		// Monthly Energy Chart (Daily totals for current month)
+		var monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+		var monthlyChart = new Chart(monthlyCtx, {
+			type: 'bar',
+			data: {
+				datasets: [{
+					label: 'Energy Generated (kWh)',
+					backgroundColor: colors[0],
+					borderColor: colors[0],
+					data: {{monthlyGenerated|tojson}}
+				},{
+					label: 'Energy Consumed (kWh)',
+					backgroundColor: colors[1],
+					borderColor: colors[1],
+					data: {{monthlyConsumed|tojson}}
+				}]
+			},
+			options: {
+				maintainAspectRatio: false,
+				legend: {
+					display: true
+				},
+				scales: {
+					xAxes: [{
+						type: 'time',
+						time: {
+							unit: 'day',
+							displayFormats: {
+								day: 'MMM DD'
+							}
+						},
+						scaleLabel: {
+							display: true,
+							labelString: 'Date'
+						}
+					}],
+					yAxes: [{
+						scaleLabel: {
+							display: true,
+							labelString: 'Energy (kWh)'
+						}
+					}]
+				},
+				plugins: {
+					zoom: {
+						pan: {
+							enabled: true,
+							mode: 'xy'
+						},
+						zoom: {
+							enabled: true,
+							mode: 'xy'
+						}
+					}
+				}
+			}
+		});
+
+		// Yearly Energy Chart (Monthly totals for current year)
+		var yearlyCtx = document.getElementById('yearlyChart').getContext('2d');
+		var yearlyChart = new Chart(yearlyCtx, {
+			type: 'bar',
+			data: {
+				datasets: [{
+					label: 'Energy Generated (kWh)',
+					backgroundColor: colors[2],
+					borderColor: colors[2],
+					data: {{yearlyGenerated|tojson}}
+				},{
+					label: 'Energy Consumed (kWh)',
+					backgroundColor: colors[3],
+					borderColor: colors[3],
+					data: {{yearlyConsumed|tojson}}
+				}]
+			},
+			options: {
+				maintainAspectRatio: false,
+				legend: {
+					display: true
+				},
+				scales: {
+					xAxes: [{
+						type: 'time',
+						time: {
+							unit: 'month',
+							displayFormats: {
+								month: 'MMM YYYY'
+							}
+						},
+						scaleLabel: {
+							display: true,
+							labelString: 'Month'
+						}
+					}],
+					yAxes: [{
+						scaleLabel: {
+							display: true,
+							labelString: 'Energy (kWh)'
+						}
+					}]
+				},
+				plugins: {
+					zoom: {
+						pan: {
+							enabled: true,
+							mode: 'xy'
+						},
+						zoom: {
+							enabled: true,
+							mode: 'xy'
+						}
+					}
+				}
+			}
+		});
+    </script>
+  </body>
+</html>
