@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, jsonify
 import os
 import re
 from datetime import datetime
@@ -19,8 +19,8 @@ maxInputVoltage = 105
 maxInputPower = 1300
 maxPiTemp = 85
 
-@app.route('/dashboard')
-def dashboard():
+@app.route('/sys_status')
+def sys_status():
 	
 	# timestamp	
 	now = datetime.now()
@@ -30,7 +30,7 @@ def dashboard():
 	try:
 		statusMsg = os.popen("sudo mpp-solar -c QPIGS -d /dev/hidraw0").read()
 	except:
-		return render_template('dashboard.html', activePower = 0,
+		return render_template('system_status.html', activePower = 0,
 											 outputLoad = 0,
 											 batteryChargeCurrent = 0,
 											 batteryDischargeCurrent = 0,
@@ -108,7 +108,7 @@ def dashboard():
 																		  statusVals.get("pv_input_voltage")])
 		conn.commit()
 		
-		return render_template('dashboard.html', activePower = statusVals.get("ac_output_active_power"),
+		return render_template('system_status.html', activePower = statusVals.get("ac_output_active_power"),
 											 outputLoad = statusVals.get("ac_output_load"),
 											 batteryChargeCurrent = statusVals.get("battery_charging_current"),
 											 batteryDischargeCurrent = statusVals.get("battery_discharge_current"),
@@ -131,7 +131,7 @@ def dashboard():
 											 pvInputVoltagePct = int(statusVals.get("pv_input_voltage") * 100 / maxInputVoltage),
 											 piTempPct = int(statusVals.get("piTemp") * 100 / maxPiTemp))
 	else:
-		return render_template('dashboard.html', activePower = 0,
+		return render_template('system_status.html', activePower = 0,
 											 outputLoad = 0,
 											 batteryChargeCurrent = 0,
 											 batteryDischargeCurrent = 0,
@@ -156,9 +156,120 @@ def dashboard():
 		
 
 	conn.close()
-	
-@app.route('/day')
-def day():
+
+def get_chart_data(period='today'):
+	# connect to database
+	conn = sqlite3.connect('/home/pi/Documents/Solar.db')
+	conn.row_factory = sqlite3.Row
+	cur = conn.cursor()
+
+	# Determine time filter based on period
+	if period == 'today':
+		time_filter = "datetime(timestamp) > datetime('now','-1 day','localtime')"
+	elif period == 'last7days':
+		time_filter = "datetime(timestamp) > datetime('now','-7 days','localtime')"
+	elif period == 'last30days':
+		time_filter = "datetime(timestamp) > datetime('now','-30 days','localtime')"
+	else:
+		time_filter = "datetime(timestamp) > datetime('now','-1 day','localtime')"  # default to today
+
+	cur.execute(f"select timestamp,pv_input_power,ac_output_active_power,battery_charging_current,battery_discharge_current,battery_voltage,inverter_heat_sink_temperature,rasberryPi_temperature from LV5048 where {time_filter} order by timestamp")
+	rows = cur.fetchall()
+
+	# Chart 1 calculated power data (using same methodology as stats endpoint)
+	calcGeneration = []
+	calcUsage = []
+
+	# Calculate total energy using same integration method as stats endpoint
+	totalGenerated = 0.0
+	totalConsumed = 0.0
+
+	for i in range(len(rows) - 1):
+		current_time = dateutil.parser.isoparse(rows[i][0])
+		next_time = dateutil.parser.isoparse(rows[i + 1][0])
+		time_delta_hours = (next_time - current_time).total_seconds() / 3600.0
+
+		battery_voltage = rows[i][5] if rows[i][5] else 0.0
+		charge_current = rows[i][3] if rows[i][3] else 0.0
+		discharge_current = rows[i][4] if rows[i][4] else 0.0
+
+		# Use same calculation as stats: voltage × current
+		generated_power = battery_voltage * charge_current
+		consumed_power = battery_voltage * discharge_current
+
+		# Add to chart data
+		calcGeneration.append({"x" : rows[i][0], "y" : generated_power})
+		calcUsage.append({"x" : rows[i][0], "y" : consumed_power})
+
+		# Calculate energy totals (power × time)
+		generated_power_kw = generated_power / 1000.0
+		consumed_power_kw = consumed_power / 1000.0
+
+		totalGenerated += generated_power_kw * time_delta_hours
+		totalConsumed += consumed_power_kw * time_delta_hours
+
+	# Add the last data point for chart display
+	if rows:
+		last_row = rows[-1]
+		battery_voltage = last_row[5] if last_row[5] else 0.0
+		charge_current = last_row[3] if last_row[3] else 0.0
+		discharge_current = last_row[4] if last_row[4] else 0.0
+
+		generated_power = battery_voltage * charge_current
+		consumed_power = battery_voltage * discharge_current
+
+		calcGeneration.append({"x" : last_row[0], "y" : generated_power})
+		calcUsage.append({"x" : last_row[0], "y" : consumed_power})
+
+	# Chart 2 power data (PV Array 1 only)
+	pvwatts = []
+	for row in rows:
+		pvwatts.append({"x" : row[0], "y" : row[1]})
+	usedwatts = []
+	for row in rows:
+		usedwatts.append({"x" : row[0], "y" : row[2]})
+	# Chart 3 batt data
+	volts = []
+	for row in rows:
+		volts.append({"x" : row[0], "y" : row[5]})
+	chargeAmps = []
+	for row in rows:
+		chargeAmps.append({"x" : row[0], "y" : row[3]})
+	dischargeAmps = []
+	for row in rows:
+		dischargeAmps.append({"x" : row[0], "y" : row[4]})
+	# Chart 4 temps
+	inverterTemps = []
+	for row in rows:
+		inverterTemps.append({"x" : row[0], "y" : row[6]})
+	piTemps = []
+	for row in rows:
+		piTemps.append({"x" : row[0], "y" : row[7]})
+
+	conn.close()
+
+	return {
+		'calcGeneration': calcGeneration,
+		'calcUsage': calcUsage,
+		'pvwatts': pvwatts,
+		'usedwatts': usedwatts,
+		'volts': volts,
+		'chargeAmps': chargeAmps,
+		'dischargeAmps': dischargeAmps,
+		'inverterTemps': inverterTemps,
+		'piTemps': piTemps,
+		'totalGenerated': round(totalGenerated, 2),
+		'totalConsumed': round(totalConsumed, 2)
+	}
+
+@app.route('/data_endpoint')
+def data_endpoint():
+	period = request.args.get('period', 'today')
+	data = get_chart_data(period)
+	return jsonify(data)
+
+@app.route('/data')
+def data():
 	# timestamp	
 	now = datetime.now()
 	time = now.strftime("%m/%d/%Y - %H:%M:%S")
@@ -225,166 +336,25 @@ def day():
 	except:
 		print("Inverter query failed")
 	
-	# connect to database
-	conn = sqlite3.connect('/home/pi/Documents/Solar.db')
-	conn.row_factory = sqlite3.Row
-   
-	cur = conn.cursor()
-	cur.execute("select timestamp,pv_input_power,ac_output_active_power,battery_charging_current,battery_discharge_current,battery_voltage,inverter_heat_sink_temperature,rasberryPi_temperature from LV5048 where datetime(timestamp) > datetime('now','-36 hours','localtime')")
-	
-	rows = cur.fetchall(); 
-	#data = [{"x": dateutil.parser.isoparse(row[0]).strftime('%Y-%M-%d HH:mm'), "y": row[1]} for row in rows]
-	#return render_template('weekly.html', data = json.dumps(data,ensure_ascii=True))
-	
-	# Chart 1 power data
-	pvwatts = []
-	for row in rows:
-		pvwatts.append({"x" : row[0], "y" : row[1]})
-	usedwatts = []
-	for row in rows:
-		usedwatts.append({"x" : row[0], "y" : row[2]})
-	# Chart 2 batt data
-	volts = []
-	for row in rows:
-		volts.append({"x" : row[0], "y" : row[5]})
-	chargeAmps = []
-	for row in rows:
-		chargeAmps.append({"x" : row[0], "y" : row[3]})
-	dischargeAmps = []
-	for row in rows:
-		dischargeAmps.append({"x" : row[0], "y" : row[4]})
-	# Chart 3 temps
-	inverterTemps = []
-	for row in rows:
-		inverterTemps.append({"x" : row[0], "y" : row[6]})
-	piTemps = []
-	for row in rows:
-		piTemps.append({"x" : row[0], "y" : row[7]})
-		
-	return render_template('day.html', pvwatts = pvwatts, usedwatts = usedwatts, volts = volts, chargeAmps = chargeAmps, dischargeAmps = dischargeAmps, inverterTemps = inverterTemps, piTemps = piTemps)
+	# Get chart data using helper function (default to today)
+	chart_data = get_chart_data('today')
+
+	return render_template('data.html',
+						 time=time,
+						 calcGeneration=chart_data['calcGeneration'],
+						 calcUsage=chart_data['calcUsage'],
+						 pvwatts=chart_data['pvwatts'],
+						 usedwatts=chart_data['usedwatts'],
+						 volts=chart_data['volts'],
+						 chargeAmps=chart_data['chargeAmps'],
+						 dischargeAmps=chart_data['dischargeAmps'],
+						 inverterTemps=chart_data['inverterTemps'],
+						 piTemps=chart_data['piTemps'])
 
 	
 
-@app.route('/week')
-def week():
-	# connect to database
-	conn = sqlite3.connect('/home/pi/Documents/Solar.db')
-	conn.row_factory = sqlite3.Row
-   
-	cur = conn.cursor()
-	cur.execute("select timestamp,pv_input_power,ac_output_active_power,battery_charging_current,battery_discharge_current,battery_voltage,inverter_heat_sink_temperature,rasberryPi_temperature from LV5048 where datetime(timestamp) > datetime('now','-7 day','localtime')")
-	
-	rows = cur.fetchall(); 
-	#data = [{"x": dateutil.parser.isoparse(row[0]).strftime('%Y-%M-%d HH:mm'), "y": row[1]} for row in rows]
-	#return render_template('weekly.html', data = json.dumps(data,ensure_ascii=True))
-	
-	# Chart 1 power data
-	pvwatts = []
-	for row in rows:
-		pvwatts.append({"x" : row[0], "y" : row[1]})
-	usedwatts = []
-	for row in rows:
-		usedwatts.append({"x" : row[0], "y" : row[2]})
-	# Chart 2 batt data
-	volts = []
-	for row in rows:
-		volts.append({"x" : row[0], "y" : row[5]})
-	chargeAmps = []
-	for row in rows:
-		chargeAmps.append({"x" : row[0], "y" : row[3]})
-	dischargeAmps = []
-	for row in rows:
-		dischargeAmps.append({"x" : row[0], "y" : row[4]})
-	# Chart 3 temps
-	inverterTemps = []
-	for row in rows:
-		inverterTemps.append({"x" : row[0], "y" : row[6]})
-	piTemps = []
-	for row in rows:
-		piTemps.append({"x" : row[0], "y" : row[7]})
-		
-	return render_template('week.html', pvwatts = pvwatts, usedwatts = usedwatts, volts = volts, chargeAmps = chargeAmps, dischargeAmps = dischargeAmps, inverterTemps = inverterTemps, piTemps = piTemps)
 
-@app.route('/month')
-def month():
-	# connect to database
-	conn = sqlite3.connect('/home/pi/Documents/Solar.db')
-	conn.row_factory = sqlite3.Row
-   
-	cur = conn.cursor()
-	cur.execute("select timestamp,pv_input_power,ac_output_active_power,battery_charging_current,battery_discharge_current,battery_voltage,inverter_heat_sink_temperature,rasberryPi_temperature from LV5048 where datetime(timestamp) > datetime('now','-30 day','localtime')")
-	
-	rows = cur.fetchall(); 
-	#data = [{"x": dateutil.parser.isoparse(row[0]).strftime('%Y-%M-%d HH:mm'), "y": row[1]} for row in rows]
-	#return render_template('weekly.html', data = json.dumps(data,ensure_ascii=True))
-	
-	# Chart 1 power data
-	pvwatts = []
-	for row in rows:
-		pvwatts.append({"x" : row[0], "y" : row[1]})
-	usedwatts = []
-	for row in rows:
-		usedwatts.append({"x" : row[0], "y" : row[2]})
-	# Chart 2 batt data
-	volts = []
-	for row in rows:
-		volts.append({"x" : row[0], "y" : row[5]})
-	chargeAmps = []
-	for row in rows:
-		chargeAmps.append({"x" : row[0], "y" : row[3]})
-	dischargeAmps = []
-	for row in rows:
-		dischargeAmps.append({"x" : row[0], "y" : row[4]})
-	# Chart 3 temps
-	inverterTemps = []
-	for row in rows:
-		inverterTemps.append({"x" : row[0], "y" : row[6]})
-	piTemps = []
-	for row in rows:
-		piTemps.append({"x" : row[0], "y" : row[7]})
-		
-	return render_template('month.html', pvwatts = pvwatts, usedwatts = usedwatts, volts = volts, chargeAmps = chargeAmps, dischargeAmps = dischargeAmps, inverterTemps = inverterTemps, piTemps = piTemps)
-	
 
-@app.route('/year')
-def year():
-	# connect to database
-	conn = sqlite3.connect('/home/pi/Documents/Solar.db')
-	conn.row_factory = sqlite3.Row
-   
-	cur = conn.cursor()
-	cur.execute("select timestamp,pv_input_power,ac_output_active_power,battery_charging_current,battery_discharge_current,battery_voltage,inverter_heat_sink_temperature,rasberryPi_temperature from LV5048 where datetime(timestamp) > datetime('now','-365 day','localtime')")
-	
-	rows = cur.fetchall(); 
-	#data = [{"x": dateutil.parser.isoparse(row[0]).strftime('%Y-%M-%d HH:mm'), "y": row[1]} for row in rows]
-	#return render_template('weekly.html', data = json.dumps(data,ensure_ascii=True))
-	
-	# Chart 1 power data
-	pvwatts = []
-	for row in rows:
-		pvwatts.append({"x" : row[0], "y" : row[1]})
-	usedwatts = []
-	for row in rows:
-		usedwatts.append({"x" : row[0], "y" : row[2]})
-	# Chart 2 batt data
-	volts = []
-	for row in rows:
-		volts.append({"x" : row[0], "y" : row[5]})
-	chargeAmps = []
-	for row in rows:
-		chargeAmps.append({"x" : row[0], "y" : row[3]})
-	dischargeAmps = []
-	for row in rows:
-		dischargeAmps.append({"x" : row[0], "y" : row[4]})
-	# Chart 3 temps
-	inverterTemps = []
-	for row in rows:
-		inverterTemps.append({"x" : row[0], "y" : row[6]})
-	piTemps = []
-	for row in rows:
-		piTemps.append({"x" : row[0], "y" : row[7]})
-		
-	return render_template('year.html', pvwatts = pvwatts, usedwatts = usedwatts, volts = volts, chargeAmps = chargeAmps, dischargeAmps = dischargeAmps, inverterTemps = inverterTemps, piTemps = piTemps)
 
 
 @app.route('/stats')
@@ -463,11 +433,9 @@ def stats():
 
 	yearlyGenerated = []
 	yearlyConsumed = []
-	debug_info = []
 	for month_key in sorted(monthly_totals.keys()):
 		gen_total = round(monthly_totals[month_key]['generated'], 2)
 		con_total = round(monthly_totals[month_key]['consumed'], 2)
-		debug_info.append(f"Month {month_key}: Generated {gen_total} kWh, Consumed {con_total} kWh")
 		yearlyGenerated.append({"x": month_key + "-01", "y": gen_total})
 		yearlyConsumed.append({"x": month_key + "-01", "y": con_total})
 
@@ -480,8 +448,7 @@ def stats():
 						 monthlyGenerated=monthlyGenerated,
 						 monthlyConsumed=monthlyConsumed,
 						 yearlyGenerated=yearlyGenerated,
-						 yearlyConsumed=yearlyConsumed,
-						 debug_info=debug_info)
+						 yearlyConsumed=yearlyConsumed)
 
 if __name__ == '__main__':
 	app.run(debug = True, host='0.0.0.0')

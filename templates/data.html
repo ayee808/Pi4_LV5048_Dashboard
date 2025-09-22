@@ -15,26 +15,17 @@
   <body>
     <div class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
 		<div class="container">
-			<a class="navbar-brand" href="#">LV5048 - Last 7 Days</a>
+			<a class="navbar-brand" href="#">LV5048 - Last 36 Hours</a>
 			<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarColor02" aria-controls="navbarColor02" aria-expanded="false" aria-label="Toggle navigation">
 				<span class="navbar-toggler-icon"></span>
 			</button>
 			<div class="collapse navbar-collapse" id="navbarColor02">
 				<ul class="navbar-nav mr-auto">
 					<li class="nav-item">
-						<a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
-					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="{{ url_for('day') }}">Day</a>
+						<a class="nav-link" href="{{ url_for('sys_status') }}">Status</a>
 					</li>
 					<li class="nav-item active">
-						<a class="nav-link" href="{{ url_for('week') }}">Week<span class="sr-only">(current)</span></a>
-					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="{{ url_for('month') }}">Month</a>
-					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="{{ url_for('year') }}">Year</a>
+						<a class="nav-link" href="{{ url_for('data') }}">Data<span class="sr-only">(current)</span></a>
 					</li>
 					<li class="nav-item">
 						<a class="nav-link" href="{{ url_for('stats') }}">Stats</a>
@@ -48,33 +39,63 @@
 	</div>
     
     <div class = "container" >
+		<!-- Time Period Selector -->
 		<div class="row" style="margin-top:70px">
 			<div class="col-lg-12">
-				<div class="card border-primary mb-12" style="max-width: 100%;">
+				<div class="card border-info mb-3">
+					<div class="card-body">
+						<div class="form-group">
+							<label for="timePeriodSelect">Time Period:</label>
+							<select class="form-control" id="timePeriodSelect" style="width: 200px; display: inline-block;">
+								<option value="today" selected>Today</option>
+								<option value="last7days">Last 7 Days</option>
+								<option value="last30days">Last 30 Days</option>
+							</select>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+
+		<div class="row">
+			<div class="col-lg-12">
+				<div class="card border-primary mb-12" style="max-width: 100%; height: 500px;">
+					<div class="card-header">Power Generation and Usage (Calculated)</div>
+						<div class="card-body">
+							<canvas id="calcPwrChart" style="height:400px;"></canvas>
+						</div>
+
+				</div>
+			</div>
+		</div>
+		<div class="row" style="margin-top:20px">
+			<div class="col-lg-12">
+				<div class="card border-primary mb-12" style="max-width: 100%; height: 500px;">
 					<div class="card-header">Battery</div>
 						<div class="card-body">
 							<div class="card-body">
 								<canvas id="battChart" style="height:400px;"></canvas>
 							</div>
 						</div>
-					
+
 				</div>
 			</div>
 		</div>
 		<div class="row" style="margin-top:20px">
 			<div class="col-lg-12">
-				<div class="card border-primary mb-12" style="max-width: 100%;">
-					<div class="card-header">Power Generation and Usage</div>
+				<div class="card border-primary mb-12" style="max-width: 100%; height: 500px;">
+					<div class="card-header">Power Generation and Usage (PV Array 1 only)</div>
 						<div class="card-body">
 							<canvas id="pwrChart" style="height:400px;"></canvas>
 						</div>
-					
+
 				</div>
 			</div>
 		</div>
 		<div class="row" style="margin-top:20px">
 			<div class="col-lg-12">
-				<div class="card border-primary mb-12" style="max-width: 100%;">
+				<div class="card border-primary mb-12" style="max-width: 100%; height: 500px;">
 					<div class="card-header">Temperatures</div>
 						<div class="card-body">
 							<div class="card-body">
@@ -93,12 +114,70 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.27.0/moment.min.js"></script>
-	<!--<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.js"></script>-->
 	<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3"></script>
 	<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
 	<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@0.7.7"></script>
     <script>
 		var colors = ['#9B5DE5','#F15BB5','#FEE440','#00BBF9','#00F5D4'];
+
+		// Calculated Power Chart
+		var calcPwrCtx = document.getElementById('calcPwrChart').getContext('2d');
+		var calcPwrChart = new Chart(calcPwrCtx, {
+			type: 'line',
+			data: {
+				datasets: [{
+					label: 'Generation (V × Charge Amps)',
+					backgroundColor: colors[0],
+					borderColor: colors[0],
+					fill: false,
+					data: {{calcGeneration|tojson}}
+				},{
+					label: 'Usage (V × Discharge Amps)',
+					backgroundColor: colors[1],
+					borderColor: colors[1],
+					fill: false,
+					data: {{calcUsage|tojson}}
+				}]
+			},
+			options: {
+				maintainAspectRatio: false,
+				legend: {
+					display: true
+				},
+				scales: {
+					xAxes: [{
+						type: 'time',
+						time: {
+							minute: 'HH:mm'
+						}
+					}],
+					yAxes: [{
+						scaleLabel: {
+							display: true,
+							labelString: 'Watts'
+						}
+					}]
+				},
+				elements: {
+					point: {
+						radius: 2
+					}
+				},
+				plugins: {
+					zoom: {
+						pan: {
+							enabled: true,
+							mode: 'xy'
+						},
+						zoom: {
+							enabled: true,
+							mode: 'xy'
+						}
+					}
+				}
+			}
+		});
+
 		var pwrctx = document.getElementById('pwrChart').getContext('2d');
 		var pwrchart = new Chart(pwrctx, {
 			// The type of chart we want to create
@@ -125,7 +204,7 @@
 
 			// Configuration options go here
 			options: {
-				maintainAspectRatio: false,
+				maintainAspectRatio:false,
 				legend: {
 					display: true
 				},
@@ -318,7 +397,7 @@
 
 			// Configuration options go here
 			options: {
-				maintainAspectRatio: false,
+				maintainAspectRatio:false,
 				legend: {
 					display: true
 				},
@@ -379,6 +458,46 @@
 					}
 				}
 			}
+		});
+
+		// Function to update all charts with new data
+		function updateCharts(data) {
+			calcPwrChart.data.datasets[0].data = data.calcGeneration;
+			calcPwrChart.data.datasets[1].data = data.calcUsage;
+			calcPwrChart.update();
+
+			battchart.data.datasets[0].data = data.volts;
+			battchart.data.datasets[1].data = data.chargeAmps;
+			battchart.data.datasets[2].data = data.dischargeAmps;
+			battchart.update();
+
+			pwrchart.data.datasets[0].data = data.pvwatts;
+			pwrchart.data.datasets[1].data = data.usedwatts;
+			pwrchart.update();
+
+			tempchart.data.datasets[0].data = data.inverterTemps;
+			tempchart.data.datasets[1].data = data.piTemps;
+			tempchart.update();
+		}
+
+		// Handle dropdown change
+		document.getElementById('timePeriodSelect').addEventListener('change', function() {
+			const selectedPeriod = this.value;
+
+			// Show loading indicator (optional)
+			document.body.style.cursor = 'wait';
+
+			// Make AJAX request to get new data
+			fetch('/data_endpoint?period=' + selectedPeriod)
+				.then(response => response.json())
+				.then(data => {
+					updateCharts(data);
+					document.body.style.cursor = 'default';
+				})
+				.catch(error => {
+					console.error('Error fetching data:', error);
+					document.body.style.cursor = 'default';
+				});
 		});
     </script>
   </body>
