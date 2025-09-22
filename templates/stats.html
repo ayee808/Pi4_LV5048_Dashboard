@@ -102,6 +102,22 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Debug Information -->
+		<div class="row" style="margin-top:20px">
+			<div class="col-lg-12">
+				<div class="card border-warning mb-12" style="max-width: 100%;">
+					<div class="card-header">Debug Information (Monthly Totals)</div>
+					<div class="card-body">
+						<small>
+						{% for info in debug_info %}
+							{{ info }}<br>
+						{% endfor %}
+						</small>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 
     <!-- Optional JavaScript -->

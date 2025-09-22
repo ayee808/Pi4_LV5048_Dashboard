@@ -463,9 +463,13 @@ def stats():
 
 	yearlyGenerated = []
 	yearlyConsumed = []
+	debug_info = []
 	for month_key in sorted(monthly_totals.keys()):
-		yearlyGenerated.append({"x": month_key + "-01", "y": round(monthly_totals[month_key]['generated'], 2)})
-		yearlyConsumed.append({"x": month_key + "-01", "y": round(monthly_totals[month_key]['consumed'], 2)})
+		gen_total = round(monthly_totals[month_key]['generated'], 2)
+		con_total = round(monthly_totals[month_key]['consumed'], 2)
+		debug_info.append(f"Month {month_key}: Generated {gen_total} kWh, Consumed {con_total} kWh")
+		yearlyGenerated.append({"x": month_key + "-01", "y": gen_total})
+		yearlyConsumed.append({"x": month_key + "-01", "y": con_total})
 
 	conn.close()
 
@@ -476,7 +480,8 @@ def stats():
 						 monthlyGenerated=monthlyGenerated,
 						 monthlyConsumed=monthlyConsumed,
 						 yearlyGenerated=yearlyGenerated,
-						 yearlyConsumed=yearlyConsumed)
+						 yearlyConsumed=yearlyConsumed,
+						 debug_info=debug_info)
 
 if __name__ == '__main__':
 	app.run(debug = True, host='0.0.0.0')
