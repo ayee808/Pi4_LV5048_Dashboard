@@ -15,7 +15,7 @@
   <body>
     <div class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
 		<div class="container">
-			<a class="navbar-brand" href="#">LV5048 - Last 36 Hours</a>
+			<a class="navbar-brand" href="#">LV5048 - Data Charts</a>
 			<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarColor02" aria-controls="navbarColor02" aria-expanded="false" aria-label="Toggle navigation">
 				<span class="navbar-toggler-icon"></span>
 			</button>
@@ -47,7 +47,7 @@
 						<div class="form-group">
 							<label for="timePeriodSelect">Time Period:</label>
 							<select class="form-control" id="timePeriodSelect" style="width: 200px; display: inline-block;">
-								<option value="today" selected>Today</option>
+								<option value="last36hours" selected>Last 36 Hours</option>
 								<option value="last7days">Last 7 Days</option>
 								<option value="last30days">Last 30 Days</option>
 							</select>
@@ -58,21 +58,10 @@
 		</div>
 
 
-		<div class="row">
-			<div class="col-lg-12">
-				<div class="card border-primary mb-12" style="max-width: 100%; height: 500px;">
-					<div class="card-header">Power Generation and Usage (Calculated)</div>
-						<div class="card-body">
-							<canvas id="calcPwrChart" style="height:400px;"></canvas>
-						</div>
-
-				</div>
-			</div>
-		</div>
 		<div class="row" style="margin-top:20px">
 			<div class="col-lg-12">
 				<div class="card border-primary mb-12" style="max-width: 100%; height: 500px;">
-					<div class="card-header">Battery</div>
+					<div class="card-header">Battery and Consumption Data</div>
 						<div class="card-body">
 							<div class="card-body">
 								<canvas id="battChart" style="height:400px;"></canvas>
@@ -120,63 +109,6 @@
     <script>
 		var colors = ['#9B5DE5','#F15BB5','#FEE440','#00BBF9','#00F5D4'];
 
-		// Calculated Power Chart
-		var calcPwrCtx = document.getElementById('calcPwrChart').getContext('2d');
-		var calcPwrChart = new Chart(calcPwrCtx, {
-			type: 'line',
-			data: {
-				datasets: [{
-					label: 'Generation (V × Charge Amps)',
-					backgroundColor: colors[0],
-					borderColor: colors[0],
-					fill: false,
-					data: {{calcGeneration|tojson}}
-				},{
-					label: 'Usage (V × Discharge Amps)',
-					backgroundColor: colors[1],
-					borderColor: colors[1],
-					fill: false,
-					data: {{calcUsage|tojson}}
-				}]
-			},
-			options: {
-				maintainAspectRatio: false,
-				legend: {
-					display: true
-				},
-				scales: {
-					xAxes: [{
-						type: 'time',
-						time: {
-							minute: 'HH:mm'
-						}
-					}],
-					yAxes: [{
-						scaleLabel: {
-							display: true,
-							labelString: 'Watts'
-						}
-					}]
-				},
-				elements: {
-					point: {
-						radius: 2
-					}
-				},
-				plugins: {
-					zoom: {
-						pan: {
-							enabled: true,
-							mode: 'xy'
-						},
-						zoom: {
-							enabled: true,
-							mode: 'xy'
-						}
-					}
-				}
-			}
-		});
 
 		var pwrctx = document.getElementById('pwrChart').getContext('2d');
 		var pwrchart = new Chart(pwrctx, {
@@ -273,12 +205,12 @@
 			data: {
 				datasets: [{
 					label: 'Battery Voltage',
-					yAxisID: 'B',
+					yAxisID: 'A',
 					backgroundColor: colors[0],
 					borderColor: colors[0],
 					fill: false,
 					data: {{volts|tojson}}
-					
+
 				},{
 					label: 'Charge Amps',
 					yAxisID: 'A',
@@ -286,7 +218,7 @@
 					borderColor: colors[1],
 					fill: false,
 					data: {{chargeAmps|tojson}}
-					
+
 				},{
 					label: 'Discharge Amps',
 					yAxisID: 'A',
@@ -294,7 +226,23 @@
 					borderColor: colors[3],
 					fill: false,
 					data: {{dischargeAmps|tojson}}
-					
+
+				},{
+					label: 'Generation (V × Charge Amps)',
+					yAxisID: 'B',
+					backgroundColor: colors[2],
+					borderColor: colors[2],
+					fill: false,
+					data: {{calcGeneration|tojson}}
+
+				},{
+					label: 'Usage (V × Discharge Amps)',
+					yAxisID: 'B',
+					backgroundColor: colors[4],
+					borderColor: colors[4],
+					fill: false,
+					data: {{calcUsage|tojson}}
+
 				}]
 			},
 
@@ -329,7 +277,7 @@
 						position: 'left',
 						scaleLabel: {
 							display: true,
-							labelString: 'A'
+							labelString: 'Volts / Amps'
 						}
 					},{
 						id: 'B',
@@ -337,7 +285,7 @@
 						position: 'right',
 						scaleLabel: {
 							display: true,
-							labelString: 'V'
+							labelString: 'Watts'
 						}
 					}]
 				},
@@ -462,13 +410,11 @@
 
 		// Function to update all charts with new data
 		function updateCharts(data) {
-			calcPwrChart.data.datasets[0].data = data.calcGeneration;
-			calcPwrChart.data.datasets[1].data = data.calcUsage;
-			calcPwrChart.update();
-
 			battchart.data.datasets[0].data = data.volts;
 			battchart.data.datasets[1].data = data.chargeAmps;
 			battchart.data.datasets[2].data = data.dischargeAmps;
+			battchart.data.datasets[3].data = data.calcGeneration;
+			battchart.data.datasets[4].data = data.calcUsage;
 			battchart.update();
 
 			pwrchart.data.datasets[0].data = data.pvwatts;

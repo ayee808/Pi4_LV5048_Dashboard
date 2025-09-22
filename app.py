@@ -157,21 +157,21 @@ def sys_status():
 
 	conn.close()
 
-def get_chart_data(period='today'):
+def get_chart_data(period='last36hours'):
 	# connect to database
 	conn = sqlite3.connect('/home/pi/Documents/Solar.db')
 	conn.row_factory = sqlite3.Row
 	cur = conn.cursor()
 
 	# Determine time filter based on period
-	if period == 'today':
-		time_filter = "datetime(timestamp) > datetime('now','-1 day','localtime')"
+	if period == 'last36hours':
+		time_filter = "datetime(timestamp) > datetime('now','-36 hours','localtime')"
 	elif period == 'last7days':
 		time_filter = "datetime(timestamp) > datetime('now','-7 days','localtime')"
 	elif period == 'last30days':
 		time_filter = "datetime(timestamp) > datetime('now','-30 days','localtime')"
 	else:
-		time_filter = "datetime(timestamp) > datetime('now','-1 day','localtime')"  # default to today
+		time_filter = "datetime(timestamp) > datetime('now','-36 hours','localtime')"  # default to last 36 hours
 
 	cur.execute(f"select timestamp,pv_input_power,ac_output_active_power,battery_charging_current,battery_discharge_current,battery_voltage,inverter_heat_sink_temperature,rasberryPi_temperature from LV5048 where {time_filter} order by timestamp")
 	rows = cur.fetchall()
@@ -336,8 +336,8 @@ def data():
 	except:
 		print("Inverter query failed")
 	
-	# Get chart data using helper function (default to today)
-	chart_data = get_chart_data('today')
+	# Get chart data using helper function (default to last 36 hours)
+	chart_data = get_chart_data('last36hours')
 
 	return render_template('data.html',
 						 time=time,

@@ -60,10 +60,6 @@
 								<h5 class="card-title">Net Energy</h5>
 								<h3 class="{{ 'text-success' if (dailyGenerated - dailyConsumed) >= 0 else 'text-danger' }}">{{ "%.2f"|format(dailyGenerated - dailyConsumed) }} kWh</h3>
 							</div>
-							<div class="col-md-6">
-								<h5 class="card-title">Efficiency</h5>
-								<h3 class="text-info">{{ "%.1f"|format((dailyGenerated / (dailyConsumed if dailyConsumed > 0 else 1)) * 100) }}%</h3>
-							</div>
 						</div>
 					</div>
 				</div>
