@@ -399,7 +399,7 @@ def stats():
 	cur = conn.cursor()
 
 	# Calculate daily kilowatt hours for today
-	cur.execute("select timestamp,battery_voltage,battery_charging_current,ac_output_active_power from LV5048 where date(timestamp) = date('now','localtime') order by timestamp")
+	cur.execute("select timestamp,battery_voltage,battery_charging_current,battery_discharge_current from LV5048 where date(timestamp) = date('now','localtime') order by timestamp")
 	today_rows = cur.fetchall()
 
 	dailyGenerated = 0.0
@@ -413,15 +413,16 @@ def stats():
 		# Calculate generated power: battery voltage × charging current
 		battery_voltage = today_rows[i][1] if today_rows[i][1] else 0.0
 		charging_current = today_rows[i][2] if today_rows[i][2] else 0.0
-		generated_power_kw = (battery_voltage * charging_current) / 1000.0
+		discharge_current = today_rows[i][3] if today_rows[i][3] else 0.0
 
-		consumed_power_kw = today_rows[i][3] / 1000.0 if today_rows[i][3] else 0.0
+		generated_power_kw = (battery_voltage * charging_current) / 1000.0
+		consumed_power_kw = (battery_voltage * discharge_current) / 1000.0
 
 		dailyGenerated += generated_power_kw * time_delta_hours
 		dailyConsumed += consumed_power_kw * time_delta_hours
 
 	# Calculate daily totals for current month
-	cur.execute("select date(timestamp) as day, timestamp,battery_voltage,battery_charging_current,ac_output_active_power from LV5048 where strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now','localtime') order by timestamp")
+	cur.execute("select date(timestamp) as day, timestamp,battery_voltage,battery_charging_current,battery_discharge_current from LV5048 where strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now','localtime') order by timestamp")
 	month_rows = cur.fetchall()
 
 	monthly_data = {}
@@ -444,12 +445,13 @@ def stats():
 			next_time = dateutil.parser.isoparse(day_data[i + 1][1])
 			time_delta_hours = (next_time - current_time).total_seconds() / 3600.0
 
-			# Calculate generated power: battery voltage × charging current
+			# Calculate power: battery voltage × current
 			battery_voltage = day_data[i][2] if day_data[i][2] else 0.0
 			charging_current = day_data[i][3] if day_data[i][3] else 0.0
-			generated_power_kw = (battery_voltage * charging_current) / 1000.0
+			discharge_current = day_data[i][4] if day_data[i][4] else 0.0
 
-			consumed_power_kw = day_data[i][4] / 1000.0 if day_data[i][4] else 0.0
+			generated_power_kw = (battery_voltage * charging_current) / 1000.0
+			consumed_power_kw = (battery_voltage * discharge_current) / 1000.0
 
 			day_generated += generated_power_kw * time_delta_hours
 			day_consumed += consumed_power_kw * time_delta_hours
@@ -458,7 +460,7 @@ def stats():
 		monthlyConsumed.append({"x": day, "y": round(day_consumed, 2)})
 
 	# Calculate monthly totals for current year
-	cur.execute("select strftime('%Y-%m', timestamp) as month, timestamp,battery_voltage,battery_charging_current,ac_output_active_power from LV5048 where strftime('%Y', timestamp) = strftime('%Y', 'now','localtime') order by timestamp")
+	cur.execute("select strftime('%Y-%m', timestamp) as month, timestamp,battery_voltage,battery_charging_current,battery_discharge_current from LV5048 where strftime('%Y', timestamp) = strftime('%Y', 'now','localtime') order by timestamp")
 	year_rows = cur.fetchall()
 
 	yearly_data = {}
@@ -481,12 +483,13 @@ def stats():
 			next_time = dateutil.parser.isoparse(month_data[i + 1][1])
 			time_delta_hours = (next_time - current_time).total_seconds() / 3600.0
 
-			# Calculate generated power: battery voltage × charging current
+			# Calculate power: battery voltage × current
 			battery_voltage = month_data[i][2] if month_data[i][2] else 0.0
 			charging_current = month_data[i][3] if month_data[i][3] else 0.0
-			generated_power_kw = (battery_voltage * charging_current) / 1000.0
+			discharge_current = month_data[i][4] if month_data[i][4] else 0.0
 
-			consumed_power_kw = month_data[i][4] / 1000.0 if month_data[i][4] else 0.0
+			generated_power_kw = (battery_voltage * charging_current) / 1000.0
+			consumed_power_kw = (battery_voltage * discharge_current) / 1000.0
 
 			month_generated += generated_power_kw * time_delta_hours
 			month_consumed += consumed_power_kw * time_delta_hours
