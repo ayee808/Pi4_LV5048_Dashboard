@@ -398,104 +398,74 @@ def stats():
 	conn.row_factory = sqlite3.Row
 	cur = conn.cursor()
 
-	# Calculate daily kilowatt hours for today
-	cur.execute("select timestamp,battery_voltage,battery_charging_current,battery_discharge_current from LV5048 where date(timestamp) = date('now','localtime') order by timestamp")
-	today_rows = cur.fetchall()
+	# Get all data for the current year in one query
+	cur.execute("select timestamp,battery_voltage,battery_charging_current,battery_discharge_current from LV5048 where strftime('%Y', timestamp) = strftime('%Y', 'now','localtime') order by timestamp")
+	year_data = cur.fetchall()
 
+	# Group data by date for processing
+	daily_data = {}
+	for row in year_data:
+		timestamp = row[0]
+		date_key = dateutil.parser.isoparse(timestamp).date().isoformat()
+		if date_key not in daily_data:
+			daily_data[date_key] = []
+		daily_data[date_key].append(row)
+
+	# Helper function to calculate energy for a set of rows
+	def calculate_energy(rows):
+		generated = 0.0
+		consumed = 0.0
+		for i in range(len(rows) - 1):
+			current_time = dateutil.parser.isoparse(rows[i][0])
+			next_time = dateutil.parser.isoparse(rows[i + 1][0])
+			time_delta_hours = (next_time - current_time).total_seconds() / 3600.0
+
+			battery_voltage = rows[i][1] if rows[i][1] else 0.0
+			charging_current = rows[i][2] if rows[i][2] else 0.0
+			discharge_current = rows[i][3] if rows[i][3] else 0.0
+
+			generated_power_kw = (battery_voltage * charging_current) / 1000.0
+			consumed_power_kw = (battery_voltage * discharge_current) / 1000.0
+
+			generated += generated_power_kw * time_delta_hours
+			consumed += consumed_power_kw * time_delta_hours
+
+		return generated, consumed
+
+	# Calculate today's totals
+	today_date = now.date().isoformat()
 	dailyGenerated = 0.0
 	dailyConsumed = 0.0
-
-	for i in range(len(today_rows) - 1):
-		current_time = dateutil.parser.isoparse(today_rows[i][0])
-		next_time = dateutil.parser.isoparse(today_rows[i + 1][0])
-		time_delta_hours = (next_time - current_time).total_seconds() / 3600.0
-
-		# Calculate generated power: battery voltage × charging current
-		battery_voltage = today_rows[i][1] if today_rows[i][1] else 0.0
-		charging_current = today_rows[i][2] if today_rows[i][2] else 0.0
-		discharge_current = today_rows[i][3] if today_rows[i][3] else 0.0
-
-		generated_power_kw = (battery_voltage * charging_current) / 1000.0
-		consumed_power_kw = (battery_voltage * discharge_current) / 1000.0
-
-		dailyGenerated += generated_power_kw * time_delta_hours
-		dailyConsumed += consumed_power_kw * time_delta_hours
+	if today_date in daily_data:
+		dailyGenerated, dailyConsumed = calculate_energy(daily_data[today_date])
 
 	# Calculate daily totals for current month
-	cur.execute("select date(timestamp) as day, timestamp,battery_voltage,battery_charging_current,battery_discharge_current from LV5048 where strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now','localtime') order by timestamp")
-	month_rows = cur.fetchall()
-
-	monthly_data = {}
-	for row in month_rows:
-		day = row[0]
-		if day not in monthly_data:
-			monthly_data[day] = {'generated': 0.0, 'consumed': 0.0, 'timestamps': []}
-		monthly_data[day]['timestamps'].append(row)
-
+	current_month = now.strftime('%Y-%m')
 	monthlyGenerated = []
 	monthlyConsumed = []
 
-	for day in sorted(monthly_data.keys()):
-		day_generated = 0.0
-		day_consumed = 0.0
-		day_data = monthly_data[day]['timestamps']
-
-		for i in range(len(day_data) - 1):
-			current_time = dateutil.parser.isoparse(day_data[i][1])
-			next_time = dateutil.parser.isoparse(day_data[i + 1][1])
-			time_delta_hours = (next_time - current_time).total_seconds() / 3600.0
-
-			# Calculate power: battery voltage × current
-			battery_voltage = day_data[i][2] if day_data[i][2] else 0.0
-			charging_current = day_data[i][3] if day_data[i][3] else 0.0
-			discharge_current = day_data[i][4] if day_data[i][4] else 0.0
-
-			generated_power_kw = (battery_voltage * charging_current) / 1000.0
-			consumed_power_kw = (battery_voltage * discharge_current) / 1000.0
-
-			day_generated += generated_power_kw * time_delta_hours
-			day_consumed += consumed_power_kw * time_delta_hours
-
-		monthlyGenerated.append({"x": day, "y": round(day_generated, 2)})
-		monthlyConsumed.append({"x": day, "y": round(day_consumed, 2)})
+	for date_key in sorted(daily_data.keys()):
+		if date_key.startswith(current_month):
+			day_generated, day_consumed = calculate_energy(daily_data[date_key])
+			monthlyGenerated.append({"x": date_key, "y": round(day_generated, 2)})
+			monthlyConsumed.append({"x": date_key, "y": round(day_consumed, 2)})
 
 	# Calculate monthly totals for current year
-	cur.execute("select strftime('%Y-%m', timestamp) as month, timestamp,battery_voltage,battery_charging_current,battery_discharge_current from LV5048 where strftime('%Y', timestamp) = strftime('%Y', 'now','localtime') order by timestamp")
-	year_rows = cur.fetchall()
+	monthly_totals = {}
+	for date_key in daily_data.keys():
+		month_key = date_key[:7]  # YYYY-MM format
+		if month_key not in monthly_totals:
+			monthly_totals[month_key] = {'generated': 0.0, 'consumed': 0.0}
 
-	yearly_data = {}
-	for row in year_rows:
-		month = row[0]
-		if month not in yearly_data:
-			yearly_data[month] = {'generated': 0.0, 'consumed': 0.0, 'timestamps': []}
-		yearly_data[month]['timestamps'].append(row)
+		day_generated, day_consumed = calculate_energy(daily_data[date_key])
+		monthly_totals[month_key]['generated'] += day_generated
+		monthly_totals[month_key]['consumed'] += day_consumed
 
 	yearlyGenerated = []
 	yearlyConsumed = []
-
-	for month in sorted(yearly_data.keys()):
-		month_generated = 0.0
-		month_consumed = 0.0
-		month_data = yearly_data[month]['timestamps']
-
-		for i in range(len(month_data) - 1):
-			current_time = dateutil.parser.isoparse(month_data[i][1])
-			next_time = dateutil.parser.isoparse(month_data[i + 1][1])
-			time_delta_hours = (next_time - current_time).total_seconds() / 3600.0
-
-			# Calculate power: battery voltage × current
-			battery_voltage = month_data[i][2] if month_data[i][2] else 0.0
-			charging_current = month_data[i][3] if month_data[i][3] else 0.0
-			discharge_current = month_data[i][4] if month_data[i][4] else 0.0
-
-			generated_power_kw = (battery_voltage * charging_current) / 1000.0
-			consumed_power_kw = (battery_voltage * discharge_current) / 1000.0
-
-			month_generated += generated_power_kw * time_delta_hours
-			month_consumed += consumed_power_kw * time_delta_hours
-
-		yearlyGenerated.append({"x": month + "-01", "y": round(month_generated, 2)})
-		yearlyConsumed.append({"x": month + "-01", "y": round(month_consumed, 2)})
+	for month_key in sorted(monthly_totals.keys()):
+		yearlyGenerated.append({"x": month_key + "-01", "y": round(monthly_totals[month_key]['generated'], 2)})
+		yearlyConsumed.append({"x": month_key + "-01", "y": round(monthly_totals[month_key]['consumed'], 2)})
 
 	conn.close()
 
